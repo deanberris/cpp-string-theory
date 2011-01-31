@@ -1,10 +1,9 @@
 :Author:
   Dean Michael Berris <mikhailberis@gmail.com>
-:Date:
+:Creation Date:
   Jan. 31, 2011
 :Version:
-* Jan. 31, 2011 -- Updates and more details
-* Jan. 28, 2011 -- Initial Draft
+  Feb. 1, 2011 -- Updates and more details
 
 C++ String Theory
 =================
