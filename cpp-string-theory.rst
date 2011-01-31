@@ -1,9 +1,10 @@
 :Author:
   Dean Michael Berris <mikhailberis@gmail.com>
 :Date:
-  Jan. 28, 2010
+  Jan. 31, 2011
 :Version:
-  Jan. 28, 2010 -- Initial Draft
+* Jan. 31, 2011 -- Updates and more details
+* Jan. 28, 2011 -- Initial Draft
 
 C++ String Theory
 =================
@@ -204,10 +205,9 @@ looks like. As an example let's define a substring operation:
     template <class String>
     String substr(String s, size_t offset, size_t length) {
         // find the substring of s and then...
-        typename String::iterator begin = s.begin()
-                                , end = begin;
+        typename String::iterator begin = s.begin();
         advance(begin, offset);
-        end = begin;
+        typename String::iterator end = begin;
         advance(end, length);
         strings::builder builder;
         builder << strings::range(begin, end);
@@ -323,7 +323,7 @@ The builder type can then depend on the following elements:
 
 .. [#] See allocplus: http://www.drivehq.com/web/igaztanaga/allocplus/
 
-* A suitably performance-sensitive implementation of a B-tree[#]_, AVL, or
+* A suitably performance-sensitive implementation of a B-tree [#]_, AVL, or
   Red-Black tree for defining the concatenation of string blocks.
 
 .. [#] See Boost.BTree: https://github.com/Beman/Boost-Btree
@@ -401,6 +401,63 @@ that an encoding cannot be enforced as part of the type. Further, as encoding is
 a matter of interpreting a string, given Prop. 5 an encoding is therefore a
 composition of an encoding operation and a string.
 
+For dealing with data that is already immutable given by Prop. 1, what we need
+is really a means of building strings as given by Prop. 3 that allows us to view
+the string in a given encoding. By not assuming that a string has any inherent
+encoding it allows algorithm writers to develop truly generic algorithms that
+deal with strings. Even if encoding was a matter of transforming characters in
+an immutable string, the opportunity of defining how the contents of the string
+are laid out should fall as a responsibility of the builder as in Prop. 3.
+
+By already having an opaque sequence of characters as an underlying storage,
+what we can do is apply a view on the string by composing the encoding view with
+an underlying string. The interface of the view would be similar to the
+following template:
+
+.. code-block:: c++
+    
+    template <class Encoding>
+    struct view {
+        string data;
+        
+        explicit view(string data);
+
+        view(view const &); // copy constructible
+
+        view & operator=(view other); // assignable
+
+        typedef typename character<Encoding>::type value_type;
+
+        struct iterator {
+            typename value_type value_type; // depending on the encoding
+            // ... and all required iterator interface definitions
+            // while the iterator will not give mutable access to
+            // the underlying type by having references refer to a
+            // cached copy of the data
+            // ... and the iterator type shall model a random access
+            // iterator
+        };
+
+        iterator begin() const {
+            return iterator(data);
+        }
+
+        iterator end() const {
+            return iterator(data);
+        }
+
+        string raw() const {
+            return data; // return a value
+        }
+
+    };
+
+Notice that in the interface there are no string-specific member functions
+defined. This is so that algorithms will only have to deal with the range as
+exposed by the interface. Therefore there is no way for the view to create new
+strings as it is meant to behave the same as an immutable string as far as the
+interface and implied semantics is concerned.
+
 Proposition 7: Algorithms operate on strings, but strings don't have algorithms.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -410,7 +467,55 @@ string accepts messages, performs operations, or has an intrinsic capability
 aside from being a string.
 
 This reinforces Prop. 4 and Prop. 1 and is meant to emphasize that algorithms
-apply to values.
+apply to values. As hinted above in Proposition 6, an immutable string with an
+assumed encoding as composed with a view shall define the character type as
+defined by the encoding scheme. This then means that the interpretation of
+values yielded by a view to the edges, meaning on the user's code that is
+supposed to deal with the values.
+
+Let's take an example: transcoding of a string viewed as UTF-32 into a UTF-8
+``std::string`` instance.
+
+.. code-block:: c++
+
+    typedef encoded_builder<utf32_encoding> builder;
+    builder instance;
+    instance << "This should be encoded in UTF-32, with special characters.";
+    builder::string_type utf32_encoded = instance.string();
+    std::string utf8_encoded;
+    transcode(utf32_encoded, std::back_inserter(utf8_encoded), utf8_encoding());
+
+As per Prop. 6, the default view for the string encoded by a string builder
+would only be known by the builder. The ``encoded_builder`` template can then
+look like this (partially):
+
+.. code-block:: c++
+
+    template <class Encoding, class Allocator = block_allocator>
+    struct encoded_builder : builder_base {
+
+        typedef view<Encoding> string_type;
+
+        string_type string() {
+            return builder_base.string(buffer);
+        }
+
+    private:
+
+        block_buffer<Allocator> buffer;
+
+        // ... 
+        // private functions accessible to the
+        // namespace-level operator<< overload
+        // implementations
+        // ...
+    };
+
+By tying the encoding of a string with the building of the string, we should be
+able to write algorithms that deal directly with the string abstraction and
+specialize on the encoding specifics. With this scheme it would be trivial to
+implement a ``null_encoding`` which treats data pushed into builders to store
+the data "as-is" and build strings that act as immutable byte sequences.
 
 Proposition 8: Contiguity is not a property, it's a result of an algorithm.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -434,8 +539,10 @@ like ``std::array``, ``std::vector``, or ``char *``. Here though we present an
 algorithm that requires a MutableContiguousBufferIterator concept which has the
 following semantics:
 
-.. TODO define the semantics of the MutableContiguousBufferIterator concept
-   here!
+.. code-block:: c++
+   
+    // TODO define the semantics of the MutableContiguousBufferIterator concept
+    // here!
 
 The algorithm is called (aptly) linearize which takes a string, and a
 MutableContiguousBufferIterator as parameters.
@@ -445,9 +552,9 @@ MutableContiguousBufferIterator as parameters.
     template <class String, class MutableContiguousBufferIterator>
     MutableContiguousBufferIterator
     linearize(String s, MutableContiguousBufferIterator b) {
-        // take the substring of s of size l
-        // copy that range into b
-        return b
+        typename String::iterator c = s.begin(),
+                                  d = s.end();
+        return std::copy(c, d, b);
     }
 
 Interface Specifications
