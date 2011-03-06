@@ -60,6 +60,13 @@ To put it bluntly, this is the problem I'm trying to address:
 
     ``std::string`` is broken.
 
+.. note:: This is the part of the paper where I explain why I think the
+   ``std::string`` type as it's defined and as it's implemented and specified is
+   broken. The complete statement of a problem is not as succinct as above, but
+   the idea is the same: *The ``std::string`` interface and usage semantics
+   encourages bad implementations and habits that can otherwise be avoided by
+   a more thorough and thought-through definition of string type.*
+
 I think there will be people who will lash out at that statement, maybe see it
 as heresy or blasphemy. There are some people other than me who seem to think so
 and came up with different implementations of strings. I won't list them all
@@ -80,7 +87,7 @@ possible to do so.
 This paper I attempt to address the issue direct at the heart and try to present
 a theory (or theorem, or hypothesis) of how a string data structure should be
 implemented, what the semantics of this implementation should be, and how it is
-going to be better than ``std::string``.
+going to be arguably better than ``std::string``.
 
 Along with that goal, here are other problems I have with the state of string
 processing in C++ which I also aim to address:
